@@ -16,12 +16,12 @@
     - geerlingguy.php
     - geerlingguy.drush
     - geerlingguy.git
-    - geerlingguy.glusterfs
     - geerlingguy.munin-node
+    - geerlingguy.nfs
     - ../roles/leds
 
   tasks:
     - include: tasks/extras.yml
     - include: tasks/config.yml
-    - include: tasks/gluster.yml
+    - include: tasks/nfs.yml
     - include: tasks/led-monitor.yml

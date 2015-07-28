@@ -2,6 +2,7 @@
 # To run:
 #   $ ansible-playbook -i ../../inventory gluster.yml
 
+# TODO: Switch to NFS reset!
 - hosts: webservers
   sudo: yes
 
