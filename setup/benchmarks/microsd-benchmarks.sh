@@ -98,7 +98,7 @@ hdparm -t /dev/mmcblk0
 printf "\n"
 
 printf "Running dd test (of:'${DD_OUT}')...\n"
-dd if=/dev/zero of=${DD_OUT} bs=8k count=50k conv=fsync;
+dd if=/dev/zero of=${DD_OUT} bs=8k count=50k conv=fsync 2>&1
 rm -f ${DD_OUT}
 printf "\n"
 
