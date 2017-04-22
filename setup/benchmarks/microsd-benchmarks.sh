@@ -34,7 +34,7 @@ IOZONE_SIZE_DEFAULT="100M"
 IOZONE_SIZE=$1
 if [ -z "$IOZONE_SIZE" ]; then IOZONE_SIZE=$IOZONE_SIZE_DEFAULT; fi
 if ! [[ "$IOZONE_SIZE" =~ ^[0-9]+[kKmMgG]?$ ]]; then
-  printf "!!! Invalid iozone size '$IOZONE_SIZE' (arg1).  Expecting #,#k,#m,#g (eg, 100m or 1g)\n\n"
+  printf "!!! Invalid iozone size '$IOZONE_SIZE' (arg1).  Expecting #,#k,#m,#g (eg, '1024' or '100m' or '1g')\n\n"
   exit 1;
 fi
 
@@ -53,7 +53,7 @@ fi
 if [ `which iozone` ]; then
   IOZONE="iozone"
 else
-  printf "fetching/building iozone...\n"
+  printf "Fetching/building iozone...\n"
  
   # iozone dependencies
   if [ ! `which curl` ]; then
@@ -97,12 +97,12 @@ printf "Running hdparm test...\n"
 hdparm -t /dev/mmcblk0
 printf "\n"
 
-printf "Running dd test (do='${DD_OUT}')...\n"
+printf "Running dd test (of:'${DD_OUT}')...\n"
 dd if=/dev/zero of=${DD_OUT} bs=8k count=50k conv=fsync;
 rm -f ${DD_OUT}
+printf "\n"
 
-
-printf "Running iozone test (size '${IOZONE_SIZE}')...\n"
+printf "Running iozone test (size:'${IOZONE_SIZE}')...\n"
 $IOZONE -e -I -a -s ${IOZONE_SIZE} -r 4k -i 0 -i 1 -i 2
 printf "\n"
 
