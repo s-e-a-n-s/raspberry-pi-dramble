@@ -7,7 +7,7 @@
 #
 # Usage:
 #   # Run it locally.
-#   $ sudo ./microsd-benchmarks.sh
+#   $ sudo ./microsd-benchmarks.sh [iozonesize=100M]
 #
 #   # Run it straight from GitHub.
 #   $ curl https://raw.githubusercontent.com/geerlingguy/raspberry-pi-dramble/master/setup/benchmarks/microsd-benchmarks.sh | sudo bash
@@ -26,58 +26,85 @@ if [ -n "$CLOCK" ]; then
 fi
 printf "\n"
 
-# Environment. We currently depend on SUDO_USER. 
-if [ -z "$SUDO_USER" ]; then
-  printf "!!! SUDO_USER not defined.  Script must be run using sudo.  Exiting.\n\n"
+# Variables.
+IOZONE_VERSION=iozone3_434
+IOZONE_SIZE_DEFAULT="100M"
+
+# Command Line args
+IOZONE_SIZE=$1
+if [ -z "$IOZONE_SIZE" ]; then IOZONE_SIZE=$IOZONE_SIZE_DEFAULT; fi
+if ! [[ "$IOZONE_SIZE" =~ ^[0-9]+[kKmMgG]?$ ]]; then
+  printf "!!! Invalid iozone size '$IOZONE_SIZE' (arg1).  Expecting #,#k,#m,#g (eg, 100m or 1g)\n\n"
   exit 1;
 fi
 
-# Variables.
-USER_HOME_PATH=$(getent passwd $SUDO_USER | cut -d: -f6)
-IOZONE_INSTALL_PATH=$USER_HOME_PATH
-IOZONE_VERSION=iozone3_434
-
-cd $IOZONE_INSTALL_PATH
-
+#
 # Install dependencies.
+#
+
+# Check hdparam
 if [ ! `which hdparm` ]; then
   printf "Installing hdparm...\n"
   apt-get install -y hdparm
   printf "Install complete!\n\n"
 fi
-if [ ! `which curl` ]; then
-  printf "Installing curl...\n"
-  apt-get install -y curl
-  printf "Install complete!\n\n"
-fi
-if [ ! `which make` ]; then
-  printf "Installing build tools...\n"
-  apt-get install -y build-essential
-  printf "Install complete!\n\n"
-fi
 
-# Download and build iozone.
-if [ ! -f $IOZONE_INSTALL_PATH/$IOZONE_VERSION/src/current/iozone ]; then
-  printf "Installing iozone...\n"
-  curl "http://www.iozone.org/src/current/$IOZONE_VERSION.tar" | tar -x
-  cd $IOZONE_VERSION/src/current
-  make --quiet linux-arm
-  printf "Install complete!\n\n"
+# Check iozone - build and reference locally if absent.
+if [ `which iozone` ]; then
+  IOZONE="iozone"
 else
-  cd $IOZONE_VERSION/src/current
-fi
+  printf "fetching/building iozone...\n"
+ 
+  # iozone dependencies
+  if [ ! `which curl` ]; then
+    printf "Installing curl...\n"
+    apt-get install -y curl
+    printf "Install complete!\n\n"
+  fi
+  if [ ! `which make` ]; then
+    printf "Installing build tools...\n"
+    apt-get install -y build-essential
+    printf "Install complete!\n\n"
+  fi
 
+  # Determine location for iozone build... homedir.
+  MYUSER="$SUDO_USER";
+  if [ -z "$MYUSER" ]; then MYUSER="$USER"; fi
+  if [ -z "$MYUSER" ]; then printf "!!! Unable to determine user... exiting.\n\n"; exit 1; fi
+
+  IOZONE_INSTALL_PATH=$(getent passwd $MYUSER | cut -d: -f6)
+  cd $IOZONE_INSTALL_PATH
+
+  # Download and build iozone.
+  IOZONE="$IOZONE_INSTALL_PATH/$IOZONE_VERSION/src/current/iozone"
+  if [ ! -f "$IOZONE" ]; then
+    printf "Installing iozone (user:'$MYUSER' loc:'$IOZONE_INSTALL_PATH')...\n"
+    curl "http://www.iozone.org/src/current/$IOZONE_VERSION.tar" | tar -x
+    cd $IOZONE_VERSION/src/current
+    make --quiet linux-arm
+    printf "Iozone install complete!\n\n"
+  fi
+fi # end of 'which iozone' check;
+
+# dd out directory (attempt to be OSX friendly)
+DD_OUT=`mktemp 2>/dev/null || mktemp -t 'microsd-benmark'`
+
+#
 # Run benchmarks.
+#
+
 printf "Running hdparm test...\n"
 hdparm -t /dev/mmcblk0
 printf "\n"
 
-printf "Running dd test...\n\n"
-dd if=/dev/zero of=${USER_HOME_PATH}/test bs=8k count=50k conv=fsync; rm -f ${USER_HOME_PATH}/test
-printf "\n"
+printf "Running dd test (do='${DD_OUT}')...\n"
+dd if=/dev/zero of=${DD_OUT} bs=8k count=50k conv=fsync;
+rm -f ${DD_OUT}
 
-printf "Running iozone test...\n"
-./iozone -e -I -a -s 100M -r 4k -i 0 -i 1 -i 2
+
+printf "Running iozone test (size '${IOZONE_SIZE}')...\n"
+$IOZONE -e -I -a -s ${IOZONE_SIZE} -r 4k -i 0 -i 1 -i 2
 printf "\n"
 
 printf "microSD card benchmark complete!\n\n"
+
